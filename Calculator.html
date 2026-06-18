@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>10:00PM Calculator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0d0d14;
+  --surface:  #16161f;
+  --glass:    rgba(255,255,255,0.04);
+  --border:   rgba(255,255,255,0.07);
+  --text:     #e8e8f0;
+  --muted:    rgba(232,232,240,0.45);
+  --accent:   #a78bfa;
+  --accent2:  #818cf8;
+  --op:       #312e81;
+  --op-hover: #3730a3;
+  --eq:       #5b21b6;
+  --eq-hover: #6d28d9;
+  --danger:   #1e1030;
+  --danger-hover: #2d1547;
+  --num:      rgba(255,255,255,0.05);
+  --num-hover:rgba(255,255,255,0.10);
+  --radius:   18px;
+  --radius-sm:12px;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--bg);
+  font-family: 'DM Sans', sans-serif;
+  overflow: hidden;
+}
+
+/* Ambient glow blobs */
+.blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 0;
+}
+.blob-1 { width: 420px; height: 420px; background: #7c3aed; top: -120px; left: -100px; }
+.blob-2 { width: 320px; height: 320px; background: #4f46e5; bottom: -80px; right: -80px; }
+.blob-3 { width: 200px; height: 200px; background: #a78bfa; top: 40%; left: 50%; transform: translate(-50%,-50%); opacity: 0.10; }
+
+/* Card */
+.calc-wrap {
+  position: relative;
+  z-index: 1;
+  width: 340px;
+}
+
+.calculator {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  padding: 24px 20px 20px;
+  box-shadow:
+    0 0 0 1px rgba(167,139,250,0.06),
+    0 32px 80px rgba(0,0,0,0.6),
+    0 8px 24px rgba(0,0,0,0.4);
+}
+
+/* Display area */
+.display-wrap {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px 12px;
+  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 4px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.display-expr {
+  font-family: 'Inter', monospace;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  min-height: 18px;
+  word-break: break-all;
+  text-align: right;
+  letter-spacing: 0.3px;
+}
+
+.display-main {
+  font-family: 'Inter', monospace;
+  font-size: 34px;
+  font-weight: 300;
+  color: var(--text);
+  letter-spacing: -1px;
+  word-break: break-all;
+  text-align: right;
+  line-height: 1;
+  transition: opacity 0.3s ease;
+}
+
+/* Lyrics area */
+.lyrics-wrap {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  margin-bottom: 4px;
+}
+
+.lyrics-text {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--accent);
+  text-align: center;
+  line-height: 1.6;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+  letter-spacing: 0.2px;
+  text-shadow: 0 0 20px rgba(167,139,250,0.5);
+}
+
+.lyrics-text.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lyrics-text.hidden {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* Note icon when idle */
+.music-idle {
+  font-size: 18px;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.music-idle.show { opacity: 1; }
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0 14px;
+}
+
+/* Buttons grid */
+.buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+}
+
+button {
+  height: 62px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--num);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  border: 1px solid var(--border);
+  letter-spacing: -0.3px;
+  position: relative;
+  overflow: hidden;
+}
+
+button:hover {
+  background: var(--num-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+button:active {
+  transform: translateY(0px) scale(0.97);
+  box-shadow: none;
+}
+
+/* Ripple */
+button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.06);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+button:active::after { opacity: 1; }
+
+/* Operator buttons */
+.op {
+  background: var(--op);
+  border-color: rgba(99,91,190,0.3);
+  color: #c4b5fd;
+}
+.op:hover { background: var(--op-hover); }
+
+/* Equal button */
+.eq {
+  background: linear-gradient(135deg, #6d28d9, #4f46e5);
+  border-color: rgba(109,40,217,0.4);
+  color: white;
+  font-size: 22px;
+  box-shadow: 0 4px 20px rgba(109,40,217,0.3);
+}
+.eq:hover {
+  background: linear-gradient(135deg, #7c3aed, #5b50e8);
+  box-shadow: 0 6px 24px rgba(109,40,217,0.45);
+}
+
+/* AC button */
+.cl {
+  background: var(--danger);
+  border-color: rgba(109,40,217,0.2);
+  color: #c4b5fd;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.cl:hover { background: var(--danger-hover); }
+
+/* Backspace button */
+.back {
+  background: rgba(109,40,217,0.12);
+  border-color: rgba(109,40,217,0.2);
+  color: #a78bfa;
+  font-size: 22px;
+}
+.back:hover { background: rgba(109,40,217,0.22); }
+
+/* Zero button spans 2 cols */
+.zero {
+  grid-column: span 2;
+  text-align: left;
+  padding-left: 24px;
+  font-size: 20px;
+}
+
+/* Music progress bar */
+.music-bar-wrap {
+  margin-top: 14px;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.music-bar-wrap.active { opacity: 1; }
+.music-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  border-radius: 2px;
+  transition: width 0.5s linear;
+}
+
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+
+<div class="calc-wrap">
+  <div class="calculator">
+
+    <!-- Display -->
+    <div class="display-wrap">
+      <div class="display-expr" id="expr"></div>
+      <div class="display-main" id="display">0</div>
+    </div>
+
+    <!-- Lyrics / music area -->
+    <div class="lyrics-wrap">
+      <div class="music-idle show" id="musicIdle">♪</div>
+      <div class="lyrics-text" id="lyricsText"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Buttons -->
+    <div class="buttons">
+      <!-- Row 1 -->
+      <button class="cl" onclick="clearAll()">AC</button>
+      <button class="back" onclick="backspace()">⌫</button>
+      <button class="op" onclick="setOp('%')">%</button>
+      <button class="op" onclick="setOp('÷')">÷</button>
+
+      <!-- Row 2 -->
+      <button onclick="append('7')">7</button>
+      <button onclick="append('8')">8</button>
+      <button onclick="append('9')">9</button>
+      <button class="op" onclick="setOp('×')">×</button>
+
+      <!-- Row 3 -->
+      <button onclick="append('4')">4</button>
+      <button onclick="append('5')">5</button>
+      <button onclick="append('6')">6</button>
+      <button class="op" onclick="setOp('−')">−</button>
+
+      <!-- Row 4 -->
+      <button onclick="append('1')">1</button>
+      <button onclick="append('2')">2</button>
+      <button onclick="append('3')">3</button>
+      <button class="op" onclick="setOp('+')">+</button>
+
+      <!-- Row 5 -->
+      <button class="zero" onclick="append('0')">0</button>
+      <button onclick="append('.')">.</button>
+      <button class="eq" onclick="equal()">=</button>
+    </div>
+
+    <!-- Music progress bar -->
+    <div class="music-bar-wrap" id="barWrap">
+      <div class="music-bar" id="musicBar"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  MUSIC
+// ─────────────────────────────────────────────
+const music = new Audio("dating_tayo.mp3");
+
+// ─────────────────────────────────────────────
+//  🎤 PASTE YOUR LYRICS HERE
+//  Format: { text: "lyric line", time: seconds }
+//  'time' = when this line should appear (in seconds from song start)
+//  If you don't know exact times, use even spacing (e.g. 0, 4, 8, 12...)
+// ─────────────────────────────────────────────
+const LYRICS = [
+  { text: "Pagkat ikaw pa rin",  time: 0  },
+  { text: "sigaw ng puso",       time: 3   },
+  { text: "Ilang awit na ang inalay sayo",       time: 8  },
+  { text: "Ilang luha na rin ang natuyo",       time: 14  },
+  { text: "Kailan kaya muling makakatawang",       time: 21  },
+  { text: "Hindi ko pinipilit, walang lungkot na sumisilip",       time: 28 },
+  { text: "Kailan kaya muling makakamit",       time: 35 },
+    { text: "Ang iyong yakap at halik ng hindi sa panaginip? ",       time: 41 },
+      { text: "............",       time: 47},
+];
+
+// ─────────────────────────────────────────────
+//  CALCULATOR STATE
+// ─────────────────────────────────────────────
+const displayEl  = document.getElementById("display");
+const exprEl     = document.getElementById("expr");
+const lyricsEl   = document.getElementById("lyricsText");
+const idleEl     = document.getElementById("musicIdle");
+const barWrap    = document.getElementById("barWrap");
+const musicBar   = document.getElementById("musicBar");
+
+let currentVal   = "0";
+let firstVal     = null;
+let operator     = null;
+let newInput     = false;
+let justEqualed  = false;
+let expression   = "";
+
+// Lyrics state
+let lyricIndex   = 0;
+let lyricTimer   = null;
+let musicStarted = false;
+let barInterval  = null;
+
+// ─────────────────────────────────────────────
+//  DISPLAY HELPERS
+// ─────────────────────────────────────────────
+function updateDisplay(val) {
+  displayEl.textContent = val;
+}
+
+function updateExpr(val) {
+  exprEl.textContent = val;
+}
+
+// ─────────────────────────────────────────────
+//  CALCULATOR LOGIC
+// ─────────────────────────────────────────────
+function append(val) {
+  // If music is playing and user starts new input, stop music mode
+  if (musicStarted && val !== ".") {
+    stopMusic();
+  }
+
+  if (justEqualed) {
+    currentVal = val === "." ? "0." : val;
+    expression = "";
+    justEqualed = false;
+  } else if (newInput) {
+    currentVal = val === "." ? "0." : val;
+    newInput = false;
+  } else {
+    if (val === "." && currentVal.includes(".")) return;
+    currentVal = currentVal === "0" && val !== "." ? val : currentVal + val;
+  }
+
+  updateDisplay(currentVal);
+  updateExpr(expression + currentVal);
+}
+
+function setOp(op) {
+  if (musicStarted) stopMusic();
+
+  if (firstVal !== null && !newInput) {
+    compute(false);
+  }
+
+  firstVal  = parseFloat(currentVal);
+  operator  = op;
+  newInput  = true;
+  justEqualed = false;
+  expression = currentVal + " " + op + " ";
+  updateExpr(expression);
+}
+
+function compute(final = true) {
+  if (firstVal === null || operator === null) return;
+  const second = parseFloat(currentVal);
+  let result;
+
+  switch (operator) {
+    case "+": result = firstVal + second; break;
+    case "−": result = firstVal - second; break;
+    case "×": result = firstVal * second; break;
+    case "÷": result = second !== 0 ? firstVal / second : "Error"; break;
+    case "%": result = firstVal % second; break;
+    default:  result = second;
+  }
+
+  // Round floating point
+  if (typeof result === "number") {
+    result = parseFloat(result.toPrecision(12));
+  }
+
+  if (final) {
+    const fullExpr = expression + currentVal;
+    updateExpr(fullExpr);
+
+    // Hide the numeric result — show lyrics mode
+    displayEl.style.opacity = "0";
+    setTimeout(() => {
+  currentVal = String(result);
+  updateDisplay(currentVal);
+  updateExpr(fullExpr + " =");
+  displayEl.style.opacity = "1";
+}, 600);
+
+    firstVal  = null;
+    operator  = null;
+    newInput  = true;
+    justEqualed = true;
+
+    startMusic();
+  } else {
+    currentVal = String(result);
+    updateDisplay(currentVal);
+    firstVal = result;
+  }
+}
+
+function equal() {
+  compute(true);
+}
+
+function backspace() {
+  if (musicStarted) stopMusic();
+  if (newInput || currentVal === "0") return;
+  currentVal = currentVal.length > 1 ? currentVal.slice(0, -1) : "0";
+  updateDisplay(currentVal);
+  if (operator) updateExpr(expression + currentVal);
+  else updateExpr(currentVal);
+}
+
+function clearAll() {
+  stopMusic();
+  currentVal  = "0";
+  firstVal    = null;
+  operator    = null;
+  newInput    = false;
+  justEqualed = false;
+  expression  = "";
+  updateDisplay("0");
+  updateExpr("");
+}
+
+// ─────────────────────────────────────────────
+//  MUSIC + LYRICS
+// ─────────────────────────────────────────────
+function startMusic() {
+  if (musicStarted) return;
+  musicStarted = true;
+  lyricIndex   = 0;
+
+  // UI switch
+  idleEl.classList.remove("show");
+
+  // Play
+  music.currentTime = 0;
+  music.play().catch(() => {
+    // Autoplay blocked — show a note
+    showLyric("▶ Tap anywhere to enable audio");
+    document.addEventListener("click", resumeAudio, { once: true });
+  });
+
+  // Progress bar
+  barWrap.classList.add("active");
+  barInterval = setInterval(() => {
+    if (music.duration) {
+      musicBar.style.width = (music.currentTime / music.duration * 100) + "%";
+    }
+  }, 500);
+
+  // Lyrics loop — time-synced
+  scheduleLyrics();
+
+  // When song ends
+  music.onended = () => {
+    stopMusic();
+    showIdleState();
+  };
+}
+
+function scheduleLyrics() {
+  // Check every 250ms which lyric should be showing
+  lyricTimer = setInterval(() => {
+    if (!music.duration) return;
+    const t = music.currentTime;
+
+    // Find the current lyric index
+    let idx = -1;
+    for (let i = 0; i < LYRICS.length; i++) {
+      if (t >= LYRICS[i].time) idx = i;
+    }
+
+    // Next line cutoff: either next lyric's time or end
+    const nextTime = idx + 1 < LYRICS.length ? LYRICS[idx + 1].time : music.duration;
+    const hideAt   = nextTime - 0.6; // fade out 0.6s before next
+
+    if (idx >= 0 && idx !== lyricIndex - 1) {
+      lyricIndex = idx + 1;
+      showLyric(LYRICS[idx].text);
+    }
+
+    // Fade out just before next line
+    if (t >= hideAt && lyricsEl.classList.contains("visible")) {
+      fadeLyric();
+    }
+  }, 250);
+}
+
+function showLyric(text) {
+  // Reset
+  lyricsEl.classList.remove("visible", "hidden");
+  lyricsEl.textContent = text;
+
+  void lyricsEl.offsetWidth; // reflow
+  requestAnimationFrame(() => {
+    lyricsEl.classList.add("visible");
+  });
+}
+
+function fadeLyric() {
+  lyricsEl.classList.remove("visible");
+  lyricsEl.classList.add("hidden");
+}
+
+function stopMusic() {
+  if (!musicStarted) return;
+  musicStarted = false;
+
+  music.pause();
+  music.currentTime = 0;
+  music.onended = null;
+
+  clearInterval(lyricTimer);
+  clearInterval(barInterval);
+  lyricTimer  = null;
+  barInterval = null;
+  lyricIndex  = 0;
+
+  fadeLyric();
+  setTimeout(() => { lyricsEl.textContent = ""; }, 600);
+
+  barWrap.classList.remove("active");
+  musicBar.style.width = "0%";
+
+  showIdleState();
+}
+
+function showIdleState() {
+  setTimeout(() => { idleEl.classList.add("show"); }, 400);
+}
+
+function resumeAudio() {
+  music.play().catch(() => {});
+}
+
+// ─────────────────────────────────────────────
+//  KEYBOARD SUPPORT
+// ─────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if (e.key >= "0" && e.key <= "9") append(e.key);
+  else if (e.key === ".") append(".");
+  else if (e.key === "+") setOp("+");
+  else if (e.key === "-") setOp("−");
+  else if (e.key === "*") setOp("×");
+  else if (e.key === "/") { e.preventDefault(); setOp("÷"); }
+  else if (e.key === "%") setOp("%");
+  else if (e.key === "Enter" || e.key === "=") equal();
+  else if (e.key === "Backspace") backspace();
+  else if (e.key === "Escape") clearAll();
+});
+
+// Init
+updateDisplay("0");
+updateExpr("");
+</script>
+</body>
+</html>
